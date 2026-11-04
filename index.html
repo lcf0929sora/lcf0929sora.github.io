@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>雀雀遊樂園 | Tit Tit Playground</title>
+  <meta name="description" content="歡迎來到雀雀遊樂園 (Tit Tit Playground)！探索原創 HTML5 網頁遊戲，包含經典棒球體驗與三國戰略對決。">
+  
+  <!-- 預留 Google AdSense 腳本（將 ca-pub 替換為你的 ID） -->
+  <!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script> -->
+
+  <style>
+    :root {
+      --primary: #00f0ff;
+      --secondary: #ff007f;
+      --accent: #7000ff;
+      --bg: #0a0a12;
+      --card-bg: rgba(22, 22, 37, 0.75);
+      --text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* 背景動態炫光 */
+    .bg-glow {
+      position: absolute;
+      top: -10%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle, rgba(112, 0, 255, 0.25) 0%, rgba(0, 240, 255, 0.1) 40%, transparent 70%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* 頁首 Header */
+    header {
+      margin-top: 50px;
+      text-align: center;
+      padding: 0 20px;
+    }
+
+    .title-cn {
+      font-size: 3.5rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+      margin-bottom: 5px;
+    }
+
+    .title-en {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #8a8aa3;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .developer-tag {
+      margin-top: 15px;
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.85rem;
+      color: var(--primary);
+    }
+
+    /* 主內容區 */
+    main {
+      width: 100%;
+      max-width: 1100px;
+      padding: 40px 20px;
+      flex: 1;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      margin-bottom: 25px;
+      text-align: center;
+      color: #d1d1e0;
+      position: relative;
+    }
+
+    .section-title::after {
+      content: '';
+      display: block;
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      margin: 8px auto 0;
+      border-radius: 2px;
+    }
+
+    /* 遊戲卡片容器 */
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      justify-content: center;
+    }
+
+    /* 卡片炫光效果 */
+    .game-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .game-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: 16px;
+      padding: 2px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: destination-out;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .game-card:hover {
+      transform: translateY(-10px) scale(1.02);
+      box-shadow: 0 20px 40px rgba(0, 240, 255, 0.2);
+    }
+
+    .game-card:hover::before {
+      opacity: 1;
+    }
+
+    .card-banner {
+      height: 180px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .banner-baseball {
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+    }
+
+    .banner-kingdom {
+      background: linear-gradient(135deg, #870000, #190a05);
+    }
+
+    .card-icon {
+      font-size: 4.5rem;
+      filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4));
+      transition: transform 0.4s ease;
+    }
+
+    .game-card:hover .card-icon {
+      transform: scale(1.15) rotate(5deg);
+    }
+
+    .card-body {
+      padding: 25px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .card-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .card-desc {
+      font-size: 0.95rem;
+      color: #a0a0b5;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      flex: 1;
+    }
+
+    .play-btn {
+      align-self: flex-start;
+      padding: 10px 24px;
+      border-radius: 30px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .game-card:hover .play-btn {
+      background: linear-gradient(90deg, var(--secondary), var(--accent));
+      box-shadow: 0 4px 20px rgba(255, 0, 127, 0.5);
+    }
+
+    /* AdSense 預留區塊 */
+    .ad-container {
+      width: 100%;
+      margin: 40px 0 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    /* 頁尾 Footer */
+    footer {
+      margin-top: auto;
+      width: 100%;
+      padding: 25px 20px;
+      text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(10, 10, 18, 0.8);
+      font-size: 0.85rem;
+      color: #6c6c8a;
+    }
+
+    footer a {
+      color: #8a8aa3;
+      text-decoration: none;
+      margin: 0 10px;
+      transition: color 0.3s ease;
+    }
+
+    footer a:hover {
+      color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-glow"></div>
+
+  <!-- 標題區 -->
+  <header>
+    <h1 class="title-cn">雀雀遊樂園</h1>
+    <div class="title-en">Tit Tit Playground</div>
+    <div class="developer-tag">Designed by Tit Tit Games</div>
+  </header>
+
+  <!-- 遊戲選擇區 -->
+  <main>
+    <h2 class="section-title">精選 HTML5 遊戲</h2>
+    
+    <div class="game-grid">
+      <!-- 棒球遊戲 -->
+      <a href="https://lcf0929sora.github.io/baseball/" class="game-card">
+        <div class="card-banner banner-baseball">
+          <div class="card-icon">⚾</div>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">棒球大賽</h3>
+          <p class="card-desc">體驗熱血沸騰的揮棒快感！考驗你的反應與打擊時機，擊出驚天動地的全壘打。</p>
+          <span class="play-btn">立即遊玩 →</span>
+        </div>
+      </a>
+
+      <!-- 三國遊戲 -->
+      <a href="https://lcf0929sora.github.io/three-kingdom/" class="game-card">
+        <div class="card-banner banner-kingdom">
+          <div class="card-icon">⚔️</div>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">三國爭霸</h3>
+          <p class="card-desc">群雄割據，智謀對決！率領經典三國名將開疆闢土，體驗極致戰略樂趣。</p>
+          <span class="play-btn">立即遊玩 →</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- AdSense 廣告擺放位置 (審核通過後可解鎖標籤) -->
+    <div class="ad-container">
+      <!-- 
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+           data-ad-slot="1234567890"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      -->
+    </div>
+  </main>
+
+  <!-- 頁尾與 AdSense 必備連結 -->
+  <footer>
+    <p>© 2026 Tit Tit Games. All rights reserved.</p>
+    <p style="margin-top: 8px;">
+      <a href="#" onclick="alert('本網站所有遊戲均由 Tit Tit Games 開發，提供免費 HTML5 網頁娛樂。'); return false;">關於我們</a> | 
+      <a href="#" onclick="alert('我們使用 Third-party 廣告（如 Google AdSense）來維持服務運作，廣告商可能會使用 Cookie 收集非個人識別資訊。'); return false;">隱私權政策</a>
+    </p>
+  </footer>
+
+</body>
+</html>
