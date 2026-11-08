@@ -261,6 +261,49 @@
     footer a:hover {
       color: var(--primary);
     }
+
+    /* 背景音樂控制 */
+    #music-toggle {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 100000;
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 999px;
+      padding: 10px 15px;
+      color: #fff;
+      background: rgba(18, 22, 42, .88);
+      box-shadow: 0 5px 18px rgba(0,0,0,.28);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+    }
+    #music-toggle:hover { background: rgba(45, 49, 78, .96); }
+    #music-toggle:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+
+    /* 漂浮小鳥 */
+    #playground-bird {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 256px;
+      height: 256px;
+      object-fit: contain;
+      z-index: 99999;
+      pointer-events: auto;
+      user-select: none;
+      -webkit-user-drag: none;
+      cursor: grab;
+      touch-action: none;
+      will-change: transform;
+      filter: drop-shadow(0 5px 7px rgba(0,0,0,.22));
+    }
+    #playground-bird.is-dragging { cursor: grabbing; }
+    @media (prefers-reduced-motion: reduce) {
+      #playground-bird { will-change: auto; }
+    }
+
   </style>
 </head>
 <body>
@@ -326,6 +369,273 @@
       <a href="#" onclick="alert('我們使用 Third-party 廣告（如 Google AdSense）來維持服務運作，廣告商可能會使用 Cookie 收集非個人識別資訊。'); return false;">隱私權政策</a>
     </p>
   </footer>
+
+
+  <!-- 背景音樂：需由使用者首次操作啟動，符合瀏覽器自動播放限制 -->
+  <button id="music-toggle" type="button" aria-pressed="false" aria-label="播放背景音樂">♫ 開啟音樂</button>
+
+  <!-- 漂浮小鳥：僅碰到瀏覽器視窗邊界時反彈；不受頁面選單或區塊阻擋 -->
+  <img id="playground-bird" src="./bird.webp" alt="會走動的小鳥" draggable="false">
+
+  <script>
+  (() => {
+    const bird = document.getElementById('playground-bird');
+    if (!bird) return;
+
+    const SIZE = 256;
+    const WALK_SPEED = 105;       // 平常移動速度（px / 秒）
+    const ESCAPE_SPEED = 235;     // 滑鼠靠近時的固定逃跑速度
+    const DETECT_RADIUS = 190;
+    const HOP_HEIGHT = 13;
+    const HOP_RATE = 2.5;
+
+    let x = Math.max(0, innerWidth * 0.18);
+    let y = Math.max(0, innerHeight * 0.58);
+    let vx = WALK_SPEED * (Math.random() < .5 ? -1 : 1);
+    let vy = WALK_SPEED * (Math.random() * .8 - .4);
+    let facingLeft = vx < 0;
+    let dragging = false;
+    let dragOffsetX = 0, dragOffsetY = 0;
+    let pointerX = -10000, pointerY = -10000;
+    let lastTime = performance.now();
+    let hopTime = Math.random() * Math.PI * 2;
+    let audioContext = null;
+    let musicEnabled = false;
+    let musicTimer = null;
+    let nextMusicTime = 0;
+    let musicStep = 0;
+    const musicButton = document.getElementById('music-toggle');
+
+    // 原創輕快背景配樂：以 Web Audio 即時合成，不需外部音檔。
+    // 使用明亮的大調五聲音階、木琴感主旋律、柔和低音與輕拍節奏。
+    const MUSIC_BPM = 108;
+    const STEP_SECONDS = 60 / MUSIC_BPM / 2;
+    const melody = [
+      72, 76, 79, 76, 74, 76, 79, 83,
+      81, 79, 76, 79, 74, 76, 72, 76
+    ];
+    const chordRoots = [48, 53, 55, 50];
+
+    function playMusicNote(frequency, when, duration, volume, wave = 'sine') {
+      if (!audioContext) return;
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = wave;
+      osc.frequency.setValueAtTime(frequency, when);
+      gain.gain.setValueAtTime(0.0001, when);
+      gain.gain.exponentialRampToValueAtTime(volume, when + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(when);
+      osc.stop(when + duration + 0.025);
+    }
+
+    function scheduleMusic() {
+      if (!musicEnabled || !audioContext) return;
+      const now = audioContext.currentTime;
+      while (nextMusicTime < now + 0.12) {
+        const step = musicStep % 16;
+        const beatTime = nextMusicTime;
+        const note = melody[step];
+        // 主旋律：短音符帶一點木琴般的明亮感。
+        playMusicNote(440 * Math.pow(2, (note - 69) / 12), beatTime, 0.19, 0.038, 'triangle');
+
+        // 每四個八分音符更換和弦，低音只在強拍出現，避免過度吵雜。
+        const chord = chordRoots[Math.floor(step / 4) % chordRoots.length];
+        if (step % 4 === 0) {
+          playMusicNote(440 * Math.pow(2, (chord - 69) / 12), beatTime, 0.34, 0.045, 'sine');
+          playMusicNote(440 * Math.pow(2, (chord + 7 - 69) / 12), beatTime, 0.28, 0.014, 'sine');
+        }
+        if (step % 4 === 0 || step % 4 === 2) {
+          playMusicNote(440 * Math.pow(2, (chord - 24 - 69) / 12), beatTime, 0.25, 0.055, 'triangle');
+        }
+
+        // 柔和的拍手感節奏，避免使用刺耳的高頻噪音。
+        if (step % 4 === 2) {
+          playMusicNote(1450, beatTime, 0.035, 0.006, 'sine');
+        }
+        musicStep++;
+        nextMusicTime += STEP_SECONDS;
+      }
+    }
+
+    async function startMusic() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) {
+          musicButton.textContent = '音樂不支援';
+          return;
+        }
+        if (!audioContext) audioContext = new AudioCtx();
+        if (audioContext.state === 'suspended') await audioContext.resume();
+        musicEnabled = true;
+        nextMusicTime = audioContext.currentTime + 0.06;
+        musicStep = 0;
+        if (musicTimer) clearInterval(musicTimer);
+        musicTimer = setInterval(scheduleMusic, 30);
+        musicButton.textContent = '♫ 音樂播放中';
+        musicButton.setAttribute('aria-pressed', 'true');
+        musicButton.setAttribute('aria-label', '關閉背景音樂');
+      } catch (err) {
+        musicEnabled = false;
+        musicButton.textContent = '無法播放音樂';
+      }
+    }
+
+    function stopMusic() {
+      musicEnabled = false;
+      if (musicTimer) clearInterval(musicTimer);
+      musicTimer = null;
+      musicButton.textContent = '♫ 開啟音樂';
+      musicButton.setAttribute('aria-pressed', 'false');
+      musicButton.setAttribute('aria-label', '播放背景音樂');
+    }
+
+    musicButton.addEventListener('click', () => {
+      if (musicEnabled) stopMusic();
+      else startMusic();
+    });
+
+    // 自動播放政策：首次點擊/按鍵後嘗試啟動；使用者仍可隨時關閉。
+    let musicGestureHandled = false;
+    function startMusicAfterGesture(event) {
+      if (event && event.target && event.target.closest && event.target.closest('#music-toggle')) return;
+      if (musicGestureHandled) return;
+      musicGestureHandled = true;
+      if (!musicEnabled) startMusic();
+    }
+    window.addEventListener('pointerdown', startMusicAfterGesture, { once: true, passive: true });
+    window.addEventListener('keydown', startMusicAfterGesture, { once: true });
+
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+    const length = (a, b) => Math.hypot(a, b);
+
+    function setFacing() {
+      // 原圖朝左；朝右時使用水平鏡像。
+      bird.style.transform = `translate3d(${x}px, ${y + Math.sin(hopTime * HOP_RATE) * HOP_HEIGHT}px, 0) scaleX(${facingLeft ? 1 : -1})`;
+    }
+
+    function chirp() {
+      // 使用 Web Audio 合成短促鳥鳴，不需額外音檔。
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!audioContext) audioContext = new AudioCtx();
+        if (audioContext.state === 'suspended') audioContext.resume();
+
+        const now = audioContext.currentTime;
+        [0, 0.105, 0.22].forEach((delay, i) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = 'sine';
+          const startFreq = [1850, 2350, 2050][i];
+          osc.frequency.setValueAtTime(startFreq, now + delay);
+          osc.frequency.exponentialRampToValueAtTime(startFreq * 1.22, now + delay + .055);
+          gain.gain.setValueAtTime(.0001, now + delay);
+          gain.gain.exponentialRampToValueAtTime(.12, now + delay + .012);
+          gain.gain.exponentialRampToValueAtTime(.0001, now + delay + .085);
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.start(now + delay);
+          osc.stop(now + delay + .09);
+        });
+      } catch (err) {
+        // 瀏覽器若未支援 Web Audio，忽略聲音，不影響移動。
+      }
+    }
+
+    bird.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      dragging = true;
+      bird.classList.add('is-dragging');
+      bird.setPointerCapture(e.pointerId);
+      dragOffsetX = e.clientX - x;
+      dragOffsetY = e.clientY - y;
+      chirp();
+      e.preventDefault();
+    });
+
+    bird.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      x = clamp(e.clientX - dragOffsetX, 0, Math.max(0, innerWidth - SIZE));
+      y = clamp(e.clientY - dragOffsetY, 0, Math.max(0, innerHeight - SIZE));
+      setFacing();
+    });
+
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      bird.classList.remove('is-dragging');
+      const angle = Math.atan2(vy || 1, vx || 1);
+      vx = Math.cos(angle) * WALK_SPEED;
+      vy = Math.sin(angle) * WALK_SPEED;
+    }
+    bird.addEventListener('pointerup', endDrag);
+    bird.addEventListener('pointercancel', endDrag);
+
+    window.addEventListener('pointermove', e => {
+      if (!dragging) { pointerX = e.clientX; pointerY = e.clientY; }
+    }, { passive: true });
+    window.addEventListener('blur', () => { pointerX = pointerY = -10000; });
+    window.addEventListener('resize', () => {
+      x = clamp(x, 0, Math.max(0, innerWidth - SIZE));
+      y = clamp(y, 0, Math.max(0, innerHeight - SIZE));
+    });
+
+    function animate(now) {
+      const dt = Math.min((now - lastTime) / 1000, .035);
+      lastTime = now;
+
+      if (!dragging) {
+        const cx = x + SIZE / 2, cy = y + SIZE / 2;
+        const dx = cx - pointerX, dy = cy - pointerY;
+        const dist = length(dx, dy);
+
+        if (dist < DETECT_RADIUS && dist > 0.001) {
+          // 朝遠離滑鼠的方向，以固定速度逃跑。
+          vx = (dx / dist) * ESCAPE_SPEED;
+          vy = (dy / dist) * ESCAPE_SPEED;
+        } else {
+          // 沒有被追逐時維持一般移動速度；緩慢修正過陡的行進角度。
+          const speed = length(vx, vy) || WALK_SPEED;
+          vx = (vx / speed) * WALK_SPEED;
+          vy = (vy / speed) * WALK_SPEED;
+        }
+
+        let nextX = x + vx * dt;
+        let nextY = y + vy * dt;
+
+        const maxX = Math.max(0, innerWidth - SIZE);
+        const maxY = Math.max(0, innerHeight - SIZE);
+        if (nextX < 0 || nextX > maxX) {
+          vx *= -1;
+          nextX = clamp(nextX, 0, maxX);
+        }
+        if (nextY < 0 || nextY > maxY) {
+          vy *= -1;
+          nextY = clamp(nextY, 0, maxY);
+        }
+
+
+
+        x = nextX;
+        y = nextY;
+        hopTime += dt;
+        facingLeft = vx < 0;
+      }
+      setFacing();
+      requestAnimationFrame(animate);
+    }
+
+    bird.addEventListener('error', () => {
+      console.error('找不到 bird.webp，請確認它與 index.html 位於同一個資料夾。');
+      bird.style.display = 'none';
+    });
+    setFacing();
+    requestAnimationFrame(animate);
+  })();
+  </script>
 
 </body>
 </html>
